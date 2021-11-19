@@ -34,7 +34,7 @@ async def list_projects():
     return list(projects.values())
 
 
-@app.get("/project/{uuid}", response_model=Project)
+@app.get("/projects/{uuid}", response_model=Project)
 async def get_project(uuid: UUID):
     if uuid not in projects:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -45,7 +45,7 @@ async def get_project(uuid: UUID):
 @app.post("/projects", response_model=Project)
 async def create_project(project: ProjectIn):
     if not auth():
-        raise HTTPException(status_code=404, detail="Not authenticated")
+        raise HTTPException(status_code=403, detail="Not authenticated")
 
     uuid = uuid4()
     while uuid in projects:
@@ -60,7 +60,7 @@ async def create_project(project: ProjectIn):
 @app.put("/projects/{uuid}", response_model=Project)
 async def update_project(uuid: UUID, project: ProjectIn):
     if not auth():
-        raise HTTPException(status_code=404, detail="Not authenticated")
+        raise HTTPException(status_code=403, detail="Not authenticated")
 
     if uuid not in projects:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -69,3 +69,14 @@ async def update_project(uuid: UUID, project: ProjectIn):
     projects[uuid] = project
 
     return project
+
+
+@app.delete("/projects/{uuid}")
+async def update_project(uuid: UUID):
+    if not auth():
+        raise HTTPException(status_code=403, detail="Not authenticated")
+
+    if uuid not in projects:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    del projects[uuid]
