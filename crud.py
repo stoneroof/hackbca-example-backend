@@ -7,8 +7,7 @@ import schemas
 
 
 def unpack_project(db: Session, project: schemas.ProjectIn):
-    user_ids = (u.id for u in project.users)
-    users = db.query(models.User).filter(models.User.id.in_(user_ids)).all()
+    users = db.query(models.User).filter(models.User.id.in_(project.users)).all()
     return {**project.dict(exclude_unset=True), "users": users}
 
 

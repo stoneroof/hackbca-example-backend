@@ -17,7 +17,7 @@ class User(UserIn):
 
 class ProjectIn(BaseModel):
     name: str
-    users: List[User]
+    users: List[UUID]
     date_proposed: datetime
     time: datetime
     type: Literal["software", "hardware"]
@@ -28,6 +28,7 @@ class ProjectIn(BaseModel):
 
 class Project(ProjectIn):
     id: UUID
+    users: List[User]
 
     class Config:
         orm_mode = True
