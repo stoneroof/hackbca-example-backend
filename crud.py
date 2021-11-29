@@ -49,3 +49,7 @@ def delete_project(db: Session, uuid: UUID):
         return True
 
     return False
+
+
+def list_all_users(db: Session):
+    return db.query(models.User).all()

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from database import engine, SessionLocal
 from models import Base
-from schemas import Project, ProjectIn
+from schemas import Project, ProjectIn, User
 import crud
 
 Base.metadata.create_all(bind=engine)
@@ -72,3 +72,8 @@ async def update_project(uuid: UUID, db: Session = Depends(get_db)):
         return
     else:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.get("/users", response_model=List[User])
+async def list_users(db: Session = Depends(get_db)):
+    return crud.list_all_users(db)
