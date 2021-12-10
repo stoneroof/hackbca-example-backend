@@ -1,9 +1,11 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 from typing import List
 from uuid import UUID
 
+from auth import oauth
 from database import engine, SessionLocal
 from models import Base
 from schemas import Project, ProjectIn, User
@@ -17,6 +19,17 @@ app.add_middleware(CORSMiddleware, allow_origins="*", allow_credentials="*", all
 response_403 = {403: {"description": "Not authenticated"}}
 response_404 = {404: {"description": "Project not found"}}
 
+# Handle Google token redirect
+@app.get("/login/google")
+async def login_via_google(request: Request):
+    redirect_uri = request.url_for("auth_via_google")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get("/auth/google")
+async def auth_via_google(request: Request):
+    token = await oauth.google.authorize_access_token(request)
+    user = await oauth.google.parse_id_token(request, token)
+    return dict(user)
 
 def get_db():
     db = SessionLocal()
