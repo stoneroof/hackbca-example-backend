@@ -17,7 +17,16 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True)
-    projects = relationship("Project", secondary=xref_table, backref="users")
+    google_subject = Column(String, unique=True)
+    projects = relationship(lambda: Project, secondary=xref_table, backref="users")
+    login_tokens = relationship(lambda: LoginToken, backref="user")
+
+
+class LoginToken(Base):
+    __tablename__ = "login_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey(User.id))
 
 
 class Project(Base):

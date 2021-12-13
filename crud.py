@@ -52,3 +52,8 @@ def delete_project(db: Session, uuid: UUID):
 
 def list_all_users(db: Session):
     return db.query(models.User).all()
+
+
+def get_user(db: Session, token: str):
+    token = db.query(models.LoginToken).filter_by(id = token).one_or_none()
+    return token.user if token else None

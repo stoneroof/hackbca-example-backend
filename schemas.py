@@ -8,8 +8,23 @@ class UserIn(BaseModel):
     email: str
 
 
-class User(UserIn):
+class UserOut(UserIn):
     id: UUID
+
+
+class User(UserOut):
+    google_subject: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
+class LoginTokenIn(BaseModel):
+    id: UUID
+
+
+class LoginToken(LoginTokenIn):
+    user: UserOut
 
     class Config:
         orm_mode = True
@@ -28,7 +43,7 @@ class ProjectIn(BaseModel):
 
 class Project(ProjectIn):
     id: UUID
-    users: List[User]
+    users: List[UserOut]
 
     class Config:
         orm_mode = True
