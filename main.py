@@ -3,20 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.middleware.sessions import SessionMiddleware
 from typing import List, Optional
 from uuid import UUID
 
 from auth import oauth
 from database import engine, SessionLocal
 from models import Base
-from schemas import Project, ProjectIn, UserOut
+from schemas import Project, ProjectIn, User, UserInternal, UserOut
+from settings import SESSION_SECRET
 import crud
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins="*", allow_credentials="*", allow_methods=["*"], allow_headers=["*"])
-
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 def get_db():
     db = SessionLocal()
@@ -28,7 +30,7 @@ def get_db():
 
 async def authenticate(db: Session = Depends(get_db), hackbca_token: Optional[UUID] = Cookie(None)):
     if hackbca_token is not None:
-        user = crud.get_user(db, hackbca_token)
+        user = crud.get_user_by_token(db, hackbca_token)
         return user
     return None
 
@@ -46,16 +48,23 @@ async def login_via_google(request: Request):
 
 
 @app.get("/auth/google")
-async def auth_via_google(request: Request):
+async def auth_via_google(request: Request, response: Response, db: Session = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
-    user = await oauth.google.parse_id_token(request, token)
-    return dict(user)
+    id_token = await oauth.google.parse_id_token(request, token)
+    sub = id_token["sub"]
+    user = crud.get_user_by_subject(db, sub)
+    if user is None:
+        user = UserInternal(google_subject=sub, email=id_token["email"])
+        user = crud.create_user(db, user)
+    hackbca_token = crud.create_token(db, user.id)
+    response.set_cookie(key="hackbca_token", value=hackbca_token, expires=None)
+    return {"message": "Successfully logged in", "id": user.id} 
 
 
-@app.get("/me", response_model=UserOut, responses=response_401)
+@app.get("/me", response_model=dict, responses=response_401)
 async def me(user: Optional[UserOut] = Depends(authenticate)):
     if user is not None:
-        return user
+        return {"id": user.id, "email": user.email}
     else:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -63,11 +72,6 @@ async def me(user: Optional[UserOut] = Depends(authenticate)):
 async def logout(response: Response):
     response.set_cookie(key="hackbca_token", value="", expires=0)
     return {"message": "Successfully logged out"}
-
-
-def auth():
-    # TODO: implement
-    return True
 
 
 @app.get("/projects", response_model=List[Project])

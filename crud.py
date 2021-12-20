@@ -54,6 +54,26 @@ def list_all_users(db: Session):
     return db.query(models.User).all()
 
 
-def get_user(db: Session, token: str):
+def create_user(db: Session, user: schemas.UserInternal):
+    db_user = models.User(**user.dict())
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def get_user_by_token(db: Session, token: UUID):
     token = db.query(models.LoginToken).filter_by(id = token).one_or_none()
     return token.user if token else None
+
+
+def get_user_by_subject(db: Session, subject: str):
+    return db.query(models.User).filter_by(google_subject = subject).one_or_none()
+
+
+def create_token(db: Session, user_id: UUID):
+    token = models.LoginToken(user_id = user_id)
+    db.add(token)
+    db.commit()
+    db.refresh(token)
+    return token.id

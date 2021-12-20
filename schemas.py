@@ -12,9 +12,11 @@ class UserOut(UserIn):
     id: UUID
 
 
-class User(UserOut):
-    google_subject: Optional[str]
+class UserInternal(UserIn):
+    google_subject: str
 
+
+class User(UserOut, UserInternal):
     class Config:
         orm_mode = True
 
