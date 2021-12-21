@@ -10,6 +10,8 @@ class UserIn(BaseModel):
 
 class UserOut(UserIn):
     id: UUID
+    class Config:
+        orm_mode = True
 
 
 class UserInternal(UserIn):

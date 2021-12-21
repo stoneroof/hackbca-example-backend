@@ -92,33 +92,34 @@ async def get_project(uuid: UUID, db: Session = Depends(get_db)):
 
 
 @app.post("/projects", response_model=Project, responses=response_403)
-async def create_project(project: ProjectIn, db: Session = Depends(get_db)):
-    if not auth():
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    return crud.create_project(db, project)
+async def create_project(project: ProjectIn, db: Session = Depends(get_db), user: User = Depends(auth)):
+    return crud.create_project(db, project, user)
 
 
 @app.put("/projects/{uuid}", response_model=Project, responses=response_403|response_404)
-async def update_project(uuid: UUID, project: ProjectIn, db: Session = Depends(get_db)):
-    if not auth():
+async def update_project(uuid: UUID, project: ProjectIn, db: Session = Depends(get_db), user: User = Depends(auth)):
+    res = crud.get_project(db, uuid)
+
+    if res is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if user.id not in [u.id for u in res.users]:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    if res := crud.update_project(db, uuid, project):
-        return res
-    else:
-        raise HTTPException(status_code=404, detail="Project not found")
+    return crud.update_project(db, uuid, project)
 
 
 @app.delete("/projects/{uuid}", responses=response_403|response_404)
-async def update_project(uuid: UUID, db: Session = Depends(get_db)):
-    if not auth():
+async def update_project(uuid: UUID, db: Session = Depends(get_db), user: User = Depends(auth)):
+    res = crud.get_project(db, uuid)
+
+    if res is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if user.id not in [u.id for u in res.users]:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    if crud.delete_project(db, uuid):
-        return
-    else:
-        raise HTTPException(status_code=404, detail="Project not found")
+    return crud.delete_project(db, uuid)
 
 
 @app.get("/users", response_model=List[UserOut])

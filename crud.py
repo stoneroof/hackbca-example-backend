@@ -6,8 +6,12 @@ import models
 import schemas
 
 
-def unpack_project(db: Session, project: schemas.ProjectIn):
-    users = db.query(models.User).filter(models.User.id.in_(project.users)).all()
+def unpack_project(db: Session, project: schemas.ProjectIn, user: schemas.User = None):
+    users = project.users
+    if user:
+        users.append(user.id)
+
+    users = db.query(models.User).filter(models.User.id.in_(users)).all()
     return {**project.dict(exclude_unset=True), "users": users}
 
 
@@ -19,8 +23,8 @@ def get_project(db: Session, uuid: UUID):
     return db.query(models.Project).filter_by(id = uuid).one_or_none()
 
 
-def create_project(db: Session, project: schemas.ProjectIn):
-    db_project = models.Project(**unpack_project(db, project))
+def create_project(db: Session, project: schemas.ProjectIn, user: schemas.User = None):
+    db_project = models.Project(**unpack_project(db, project, user))
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
