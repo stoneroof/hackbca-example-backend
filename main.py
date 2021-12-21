@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from typing import List, Optional
+from urllib.parse import urljoin
 from uuid import UUID
 
 from auth import oauth
@@ -50,8 +51,9 @@ response_404 = {404: {"description": "Project not found"}}
 
 # Handle Google token redirect
 @app.get("/login/google")
-async def login_via_google(request: Request):
-    redirect_uri = request.url_for("auth_via_google")
+async def login_via_google(request: Request, redirect: str = ""):
+    request.session["redirect"] = redirect
+    redirect_uri = request.url_for(auth_via_google.__name__)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -65,7 +67,8 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
         user = UserInternal(google_subject=sub, email=id_token["email"])
         user = crud.create_user(db, user)
     hackbca_token = crud.create_token(db, user.id)
-    response = RedirectResponse(url=FRONTEND_URL)
+    response = RedirectResponse(url=urljoin(FRONTEND_URL, request.session["redirect"]))
+    del request.session["redirect"]
     response.set_cookie(key=TOKEN_NAME, value=hackbca_token, expires=None)
     return response
 
@@ -73,6 +76,7 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
 @app.get("/me", response_model=dict, responses=response_401)
 async def me(user: User = Depends(auth)):
     return {"id": user.id, "email": user.email}
+
 
 @app.get("/logout")
 async def logout():
