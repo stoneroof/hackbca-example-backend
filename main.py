@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyCookie, APIKeyHeader
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
@@ -12,13 +13,13 @@ from auth import oauth
 from database import engine, SessionLocal
 from models import Base
 from schemas import Project, ProjectIn, User, UserInternal, UserOut
-from settings import SESSION_SECRET, TOKEN_NAME
+from settings import SESSION_SECRET, TOKEN_NAME, FRONTEND_URL
 import crud
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins="*", allow_credentials="*", allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_URL, allow_credentials="*", allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 
@@ -55,7 +56,7 @@ async def login_via_google(request: Request):
 
 
 @app.get("/auth/google")
-async def auth_via_google(request: Request, response: Response, db: Session = Depends(get_db)):
+async def auth_via_google(request: Request, db: Session = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     id_token = await oauth.google.parse_id_token(request, token)
     sub = id_token["sub"]
@@ -64,8 +65,9 @@ async def auth_via_google(request: Request, response: Response, db: Session = De
         user = UserInternal(google_subject=sub, email=id_token["email"])
         user = crud.create_user(db, user)
     hackbca_token = crud.create_token(db, user.id)
+    response = RedirectResponse(url=FRONTEND_URL)
     response.set_cookie(key=TOKEN_NAME, value=hackbca_token, expires=None)
-    return {"message": "Successfully logged in", "id": user.id} 
+    return response
 
 
 @app.get("/me", response_model=dict, responses=response_401)
@@ -73,9 +75,10 @@ async def me(user: User = Depends(auth)):
     return {"id": user.id, "email": user.email}
 
 @app.get("/logout")
-async def logout(response: Response):
+async def logout():
+    response = RedirectResponse(url=FRONTEND_URL)
     response.set_cookie(key="hackbca_token", value="", expires=0)
-    return {"message": "Successfully logged out"}
+    return response
 
 
 @app.get("/projects", response_model=List[Project])

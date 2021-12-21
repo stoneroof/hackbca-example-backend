@@ -11,3 +11,5 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI")
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET") or "secret"
 TOKEN_NAME = os.environ.get("TOKEN_NAME") or "hackbca_token"
+
+FRONTEND_URL = os.environ.get("FRONTEND_URL") or "http://localhost:3000"
