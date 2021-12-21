@@ -1,9 +1,10 @@
-from fastapi import Depends, FastAPI, HTTPException, Cookie
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security.api_key import APIKeyCookie, APIKeyHeader
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.middleware.sessions import SessionMiddleware
 from typing import List, Optional
 from uuid import UUID
 
@@ -11,7 +12,7 @@ from auth import oauth
 from database import engine, SessionLocal
 from models import Base
 from schemas import Project, ProjectIn, User, UserInternal, UserOut
-from settings import SESSION_SECRET
+from settings import SESSION_SECRET, TOKEN_NAME
 import crud
 
 Base.metadata.create_all(bind=engine)
@@ -19,6 +20,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins="*", allow_credentials="*", allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+
 
 def get_db():
     db = SessionLocal()
@@ -28,11 +30,16 @@ def get_db():
         db.close()
 
 
-async def authenticate(db: Session = Depends(get_db), hackbca_token: Optional[UUID] = Cookie(None)):
-    if hackbca_token is not None:
-        user = crud.get_user_by_token(db, hackbca_token)
-        return user
-    return None
+api_key_cookie = APIKeyCookie(name=TOKEN_NAME, auto_error=False)
+api_key_header = APIKeyHeader(name=TOKEN_NAME, auto_error=False)
+
+
+def auth(cookie: str = Depends(api_key_cookie), header: str = Depends(api_key_header), db: str = Depends(get_db)):
+    token = header or cookie
+    user = crud.get_user_by_token(db, token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
 
 
 response_401 = {401: {"description": "Not authenticated"}}
@@ -57,16 +64,13 @@ async def auth_via_google(request: Request, response: Response, db: Session = De
         user = UserInternal(google_subject=sub, email=id_token["email"])
         user = crud.create_user(db, user)
     hackbca_token = crud.create_token(db, user.id)
-    response.set_cookie(key="hackbca_token", value=hackbca_token, expires=None)
+    response.set_cookie(key=TOKEN_NAME, value=hackbca_token, expires=None)
     return {"message": "Successfully logged in", "id": user.id} 
 
 
 @app.get("/me", response_model=dict, responses=response_401)
-async def me(user: Optional[UserOut] = Depends(authenticate)):
-    if user is not None:
-        return {"id": user.id, "email": user.email}
-    else:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+async def me(user: User = Depends(auth)):
+    return {"id": user.id, "email": user.email}
 
 @app.get("/logout")
 async def logout(response: Response):
