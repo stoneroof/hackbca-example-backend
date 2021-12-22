@@ -81,3 +81,13 @@ def create_token(db: Session, user_id: UUID):
     db.commit()
     db.refresh(token)
     return token.id
+
+
+def delete_token(db: Session, token: UUID):
+    token = db.query(models.LoginToken).filter_by(id = token).one_or_none()
+    if token:
+        db.delete(token)
+        db.commit()
+        return True
+
+    return False

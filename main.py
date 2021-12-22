@@ -79,9 +79,14 @@ async def me(user: User = Depends(auth)):
 
 
 @app.get("/logout")
-async def logout():
+async def logout(cookie: str = Depends(api_key_cookie), header: str = Depends(api_key_header), db: str = Depends(get_db)):
+    crud.delete_token(db, header)
+    crud.delete_token(db, cookie)
+
     response = RedirectResponse(url=FRONTEND_URL)
-    response.set_cookie(key="hackbca_token", value="", expires=0)
+    if cookie:
+        response.set_cookie(key=TOKEN_NAME, value="", expires=0)
+
     return response
 
 
